@@ -1,0 +1,9 @@
+version: "3.3"
+
+services:
+  bot:
+    image: localhost/matrix-report-mention-bot
+    restart: always
+    volumes:
+      - ./config.yaml:/usr/src/matrix-report-mention-bot/config.yaml:ro
+      - ./data:/root/.local/share/matrix-report-mention-bot

@@ -1,0 +1,12 @@
+login:
+  homeserver_url: "https://matrix.example.com"
+  mxid: "@bot:example.com"
+  password: "REDACTED"
+  device_name: "matrix-report-mention-bot"
+bot:
+  report_room: "!reportRoom:example.com"
+  watched_rooms:
+    - "!watchedRoom1:example.com"
+    - "!watchedRoom2:example.com"
+  watched_test_rooms:
+    - "!testRoom:example.com"
