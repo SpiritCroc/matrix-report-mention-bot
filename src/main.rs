@@ -6,9 +6,12 @@ use matrix_sdk::{
     event_handler::Ctx,
     matrix_auth::MatrixSession,
     Client, Room, RoomState,
-    ruma::events::room::message::{
-        MessageType, OriginalSyncRoomMessageEvent,
-        RoomMessageEventContent,
+    ruma::events::{
+        room::message::{
+            MessageType, OriginalSyncRoomMessageEvent,
+            RoomMessageEventContent,
+        },
+        Mentions,
     },
     ruma::{RoomId, OwnedRoomId},
 };
@@ -169,6 +172,7 @@ async fn handle_message(
                 } else {
                     let msg = format!("@room: I was pinged by {orig_sender} at {orig_url}");
                     RoomMessageEventContent::text_markdown(msg)
+                        .add_mentions(Mentions::with_room_mention())
                 };
                 if let Err(e) = report_room.send(content).await {
                     error!("Failed to report message from {} at {}: {}", orig_sender, orig_url, e);
