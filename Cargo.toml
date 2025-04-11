@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.86"
-config = "0.14.0"
+anyhow = "1.0.97"
+config = "0.14.1"
 dirs = "5.0.1"
-env_logger = "0.11.4"
-log = "0.4.22"
+env_logger = "0.11.8"
+log = "0.4.27"
 matrix-sdk = { version = "0.7.1", features = ["markdown"] }
-serde = "1.0.204"
-serde_json = "1.0.120"
-tokio = { version = "1.39.1", features = ["rt-multi-thread"] }
-url = "2.5.2"
+serde = "1.0.219"
+serde_json = "1.0.140"
+tokio = { version = "1.44.2", features = ["rt-multi-thread"] }
+url = "2.5.4"
