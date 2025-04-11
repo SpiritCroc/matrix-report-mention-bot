@@ -158,6 +158,9 @@ async fn handle_message(
     if text_content.body.contains(&bot_mxid) ||
         text_content.formatted.map(|f|
             f.body.contains(&bot_mxid) || f.body.contains(&bot_mxid_escaped)
+        ).unwrap_or(false) ||
+        event.content.mentions.map(|m|
+            m.user_ids.contains(room.own_user_id())
         ).unwrap_or(false)
     {
         let orig_sender = event.sender;
