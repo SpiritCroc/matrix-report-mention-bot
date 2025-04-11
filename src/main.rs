@@ -11,6 +11,8 @@ use matrix_sdk::{
             MessageType, OriginalSyncRoomMessageEvent,
             RoomMessageEventContent,
         },
+        reaction::ReactionEventContent,
+        relation::Annotation,
         Mentions,
     },
     ruma::{RoomId, OwnedRoomId},
@@ -164,7 +166,7 @@ async fn handle_message(
         ).unwrap_or(false)
     {
         let orig_sender = event.sender;
-        let orig_url = room.room_id().matrix_to_event_uri(event.event_id);
+        let orig_url = room.room_id().matrix_to_event_uri(event.event_id.clone());
         let report_room = room.client().get_room(&bot_context.0.report_room);
         match report_room {
             None => error!("Failed to retrieve report room {} from client", bot_context.0.report_room),
@@ -179,6 +181,17 @@ async fn handle_message(
                 };
                 if let Err(e) = report_room.send(content).await {
                     error!("Failed to report message from {} at {}: {}", orig_sender, orig_url, e);
+                } else {
+                    // Send reaction to signal we reported it
+                    let reaction = ReactionEventContent::new(
+                        Annotation::new(
+                            event.event_id,
+                            "📨".to_owned(),
+                        )
+                    );
+                    if let Err(e) = room.send(reaction).await {
+                        error!("Failed to send ack reaction: {}", e);
+                    }
                 }
             }
         }
