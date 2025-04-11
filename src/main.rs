@@ -19,6 +19,7 @@ use tokio::fs;
 struct BotContext {
     launched_ts: u128,
     bot_mxid: String,
+    bot_mxid_http_escaped: String,
     watched_rooms: Vec<OwnedRoomId>,
     watched_test_rooms: Vec<OwnedRoomId>,
     report_room: OwnedRoomId,
@@ -63,19 +64,23 @@ async fn main() -> anyhow::Result<()> {
     let db_path = data_dir.join("db");
     let session_path = data_dir.join("session");
 
+    // For mention detection in formatted content
+    let bot_mxid_http_escaped = mxid.replace("@", "%40").replace(":", "%3A");
+
     let bot_context = BotContext {
         launched_ts: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis(),
         bot_mxid: mxid.clone(),
+        bot_mxid_http_escaped: bot_mxid_http_escaped.clone(),
         watched_rooms,
         watched_test_rooms,
         report_room,
     };
 
     debug!("Data dir configured at {}", data_dir.to_str().unwrap_or_default());
-    debug!("Logging into {hs_url} as {mxid}...");
+    debug!("Logging into {hs_url} as {mxid} ({bot_mxid_http_escaped})...");
 
     let client = Client::builder()
         .homeserver_url(&hs_url)
@@ -145,8 +150,13 @@ async fn handle_message(
     }
 
     let bot_mxid = bot_context.0.bot_mxid;
+    let bot_mxid_escaped = bot_context.0.bot_mxid_http_escaped;
 
-    if text_content.body.contains(&bot_mxid) || text_content.formatted.map(|f| f.body.contains(&bot_mxid)).unwrap_or(false) {
+    if text_content.body.contains(&bot_mxid) ||
+        text_content.formatted.map(|f|
+            f.body.contains(&bot_mxid) || f.body.contains(&bot_mxid_escaped)
+        ).unwrap_or(false)
+    {
         let orig_sender = event.sender;
         let orig_url = room.room_id().matrix_to_event_uri(event.event_id);
         let report_room = room.client().get_room(&bot_context.0.report_room);
