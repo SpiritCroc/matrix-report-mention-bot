@@ -4,7 +4,8 @@ login:
   password: "REDACTED"
   device_name: "matrix-report-mention-bot"
 bot:
-  report_room: "!reportRoom:example.com"
+  report_rooms:
+    - "!reportRoom:example.com"
   watched_rooms:
     - "!watchedRoom1:example.com"
     - "!watchedRoom2:example.com"

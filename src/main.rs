@@ -27,7 +27,7 @@ struct BotContext {
     bot_mxid_http_escaped: String,
     watched_rooms: Vec<OwnedRoomId>,
     watched_test_rooms: Vec<OwnedRoomId>,
-    report_room: OwnedRoomId,
+    report_rooms: Vec<OwnedRoomId>,
 }
 
 #[tokio::main]
@@ -43,9 +43,14 @@ async fn main() -> anyhow::Result<()> {
     let mxid = config.get::<String>("login.mxid").expect("Bot mxid missing in config");
     let password = config.get::<String>("login.password").expect("Password missing in config");
 
-    let report_room = config.get::<String>("bot.report_room")
-        .expect("bot.report_room missing in config");
-    let report_room = RoomId::parse(report_room).expect("Invalid roomId for bot.report_room");
+    let report_rooms = config.get_array("bot.report_rooms")
+        .expect("Missing bot.report_rooms in config")
+        .into_iter()
+        .map(Value::into_string)
+        .map(Result::unwrap_or_default)
+        .map(RoomId::parse)
+        .map(|room_id| room_id.expect("Invalid roomId in bot.report_rooms"))
+        .collect();
 
     let watched_rooms = config.get_array("bot.watched_rooms")
         .expect("Missing bot.watched_rooms in config")
@@ -81,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
         bot_mxid_http_escaped: bot_mxid_http_escaped.clone(),
         watched_rooms,
         watched_test_rooms,
-        report_room,
+        report_rooms,
     };
 
     debug!("Data dir configured at {}", data_dir.to_str().unwrap_or_default());
@@ -167,33 +172,42 @@ async fn handle_message(
     {
         let orig_sender = event.sender;
         let orig_url = room.room_id().matrix_to_event_uri(event.event_id.clone());
-        let report_room = room.client().get_room(&bot_context.0.report_room);
-        match report_room {
-            None => error!("Failed to retrieve report room {} from client", bot_context.0.report_room),
-            Some(report_room) => {
-                let content = if is_test {
-                    let msg = format!("I was pinged by {orig_sender} at {orig_url}, which is a test room so I won't bother you with a room ping this time");
-                    RoomMessageEventContent::notice_markdown(msg)
-                } else {
-                    let msg = format!("@room: I was pinged by {orig_sender} at {orig_url}");
-                    RoomMessageEventContent::text_markdown(msg)
-                        .add_mentions(Mentions::with_room_mention())
-                };
-                if let Err(e) = report_room.send(content).await {
-                    error!("Failed to report message from {} at {}: {}", orig_sender, orig_url, e);
-                } else {
-                    // Send reaction to signal we reported it
-                    let reaction = ReactionEventContent::new(
-                        Annotation::new(
-                            event.event_id,
-                            "📨".to_owned(),
-                        )
-                    );
-                    if let Err(e) = room.send(reaction).await {
-                        error!("Failed to send ack reaction: {}", e);
+        let mut reported = false;
+        for report_room_id in bot_context.0.report_rooms {
+            let report_room = room.client().get_room(&report_room_id);
+            match report_room {
+                None => error!("Failed to retrieve report room {report_room_id} from client"),
+                Some(report_room) => {
+                    let content = if is_test {
+                        let msg = format!("I was pinged by {orig_sender} at {orig_url}, which is a test room so I won't bother you with a room ping this time");
+                        RoomMessageEventContent::notice_markdown(msg)
+                    } else {
+                        let msg = format!("@room: I was pinged by {orig_sender} at {orig_url}");
+                        RoomMessageEventContent::text_markdown(msg)
+                            .add_mentions(Mentions::with_room_mention())
+                    };
+                    if let Err(e) = report_room.send(content).await {
+                        error!("Failed to report message from {} at {}: {}", orig_sender, orig_url, e);
+                    } else {
+                        info!("Successfully reported message from {} at {} to {}", orig_sender, orig_url, report_room_id);
+                        reported = true;
                     }
                 }
             }
+        }
+        if reported {
+            // Send reaction to signal we reported it
+            let reaction = ReactionEventContent::new(
+                Annotation::new(
+                    event.event_id,
+                    "📨".to_owned(),
+                )
+            );
+            if let Err(e) = room.send(reaction).await {
+                error!("Failed to send ack reaction: {}", e);
+            }
+        } else {
+            error!("Failed to report to any room, not sending any ack reaction");
         }
     }
 }
